@@ -1,0 +1,3 @@
+INSERT INTO roles (name) VALUES ('JOB_SEEKER');
+INSERT INTO roles (name) VALUES ('EMPLOYER');
+INSERT INTO roles (name) VALUES ('ADMIN');

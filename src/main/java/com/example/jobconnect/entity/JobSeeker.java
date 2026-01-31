@@ -3,17 +3,20 @@ package com.example.jobconnect.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-
-@Entity
-@Table(name = "job_seekers")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = "user")
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@Entity
+@Table(name = "job_seekers")
 public class JobSeeker {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     private String resumeUrl;
@@ -21,6 +24,6 @@ public class JobSeeker {
     private String experienceLevel;
 
     @OneToOne
-    @JoinColumn(name = "user_id", referencedColumnName = "id")
+    @JoinColumn(name = "user_id")
     private User user;
 }
