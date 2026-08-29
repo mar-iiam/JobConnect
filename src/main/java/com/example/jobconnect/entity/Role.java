@@ -12,6 +12,7 @@ import java.util.Set;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @ToString
+@Builder
 public class Role {
 
     @Id
@@ -25,4 +26,7 @@ public class Role {
     @ManyToMany(mappedBy = "roles")
     @ToString.Exclude
     private Set<User> users = new HashSet<>();
+
+
+
 }
