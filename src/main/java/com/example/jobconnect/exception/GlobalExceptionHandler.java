@@ -6,7 +6,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -30,8 +33,8 @@ public class GlobalExceptionHandler {
         String errorMessage = ex.getBindingResult()
                 .getFieldErrors()
                 .stream()
-                .findFirst()
-                .map(err -> err.getField() + " " + err.getDefaultMessage())
+                .map(err -> err.getField() + ": " + err.getDefaultMessage())
+                .reduce((e1, e2) -> e1 + ", " + e2)
                 .orElse("Validation error");
 
         ApiResponse<Object> response = ApiResponse.builder()
@@ -43,7 +46,6 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.badRequest().body(response);
     }
-
     // Handle all unexpected errors
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGenericException(Exception ex) {
@@ -57,5 +59,54 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ApiResponse<Object>> handleBadCredentials(BadCredentialsException ex) {
+
+        ApiResponse<Object> response = ApiResponse.builder()
+                .statusCode(401)
+                .message("Invalid username or password")
+                .errorCode("AUTH_001")
+                .data(null)
+                .build();
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+    @ExceptionHandler(UsernameNotFoundException.class)
+    public ResponseEntity<ApiResponse<Object>> handleUserNotFound(UsernameNotFoundException ex) {
+
+        ApiResponse<Object> response = ApiResponse.builder()
+                .statusCode(404)
+                .message(ex.getMessage())
+                .errorCode("AUTH_002")
+                .data(null)
+                .build();
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Object>> handleAccessDenied(AccessDeniedException ex) {
+
+        ApiResponse<Object> response = ApiResponse.builder()
+                .statusCode(403)
+                .message("You do not have permission to access this resource")
+                .errorCode("AUTH_003")
+                .data(null)
+                .build();
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiResponse<Object>> handleAuthenticationException(AuthenticationException ex) {
+
+        ApiResponse<Object> response = ApiResponse.builder()
+                .statusCode(401)
+                .message("Authentication failed")
+                .errorCode("AUTH_004")
+                .data(null)
+                .build();
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
     }
 }

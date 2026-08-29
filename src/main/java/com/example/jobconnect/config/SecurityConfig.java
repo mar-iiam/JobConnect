@@ -36,11 +36,35 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
+
+                        // 🔓 Public endpoints
                         .requestMatchers("/api/auth/**").permitAll()
+
+                        // 🔓 Swagger endpoints (IMPORTANT FIX)
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**"
+                        ).permitAll()
+
+                        // 👑 Admin endpoints
+                        .requestMatchers("/api/admin/**")
+                        .hasAuthority("ADMIN")
+
+                        // 🏢 Employer endpoints
+                        .requestMatchers("/api/employer/**")
+                        .hasAuthority("EMPLOYER")
+
+                        // 👤 Job Seeker endpoints
+                        .requestMatchers("/api/jobseeker/**")
+                        .hasAuthority("JOB_SEEKER")
+
+                        // 🔐 All other endpoints require authentication
                         .anyRequest().authenticated()
                 )
-                // 🔥 ADD FILTER HERE
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                // 🔥 JWT filter
+                .addFilterBefore(jwtAuthenticationFilter,
+                        UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
