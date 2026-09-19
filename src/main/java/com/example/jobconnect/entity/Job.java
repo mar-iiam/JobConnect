@@ -25,27 +25,17 @@ public class Job {
 
     private String location;
 
-    @Enumerated(EnumType.STRING)
-    private EmploymentType employmentType;
-
-    @ManyToOne
-    @JoinColumn(name = "employer_id", nullable = false)
-    private User employer;
-
     public Job(
             String title,
             String description,
             String skills,
             BigDecimal salary,
-            String location,
-            EmploymentType employmentType) {
 
         this.title = title;
         this.description = description;
         this.skills = skills;
         this.salary = salary;
         this.location = location;
-        this.employmentType = employmentType;
     }
 
 

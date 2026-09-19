@@ -3,7 +3,6 @@ package com.example.jobconnect.config;
 import com.example.jobconnect.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -23,8 +22,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(
-            AuthenticationConfiguration authConfig) throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
         return authConfig.getAuthenticationManager();
     }
 
@@ -34,48 +32,15 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http)
-            throws Exception {
-
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-
                 .authorizeHttpRequests(auth -> auth
-
-                        // Public
                         .requestMatchers("/api/auth/**").permitAll()
-
-                        // Swagger
-                        .requestMatchers(
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/v3/api-docs/**"
-                        ).permitAll()
-
-                        // Admin
-                        .requestMatchers("/api/admin/**")
-                        .hasAuthority("ADMIN")
-
-                        // Employer
-                        .requestMatchers("/api/employer/**")
-                        .hasAuthority("EMPLOYER")
-
-                        // Employer can create jobs
-                        .requestMatchers(HttpMethod.POST, "/api/jobs")
-                        .hasAuthority("EMPLOYER")
-
-                        // Job seeker
-                        .requestMatchers("/api/jobseeker/**")
-                        .hasAuthority("JOB_SEEKER")
-
-                        // Everything else
                         .anyRequest().authenticated()
                 )
-
-                .addFilterBefore(
-                        jwtAuthenticationFilter,
-                        UsernamePasswordAuthenticationFilter.class
-                );
+                // 🔥 ADD FILTER HERE
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
