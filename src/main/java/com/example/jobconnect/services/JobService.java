@@ -74,7 +74,7 @@ public class JobService {
                 .orElseThrow(() -> new RuntimeException("User not found"))
                 .getEmployer();
 
-        Job job = jobRepository.findById(jobId)
+        Job job = jobRepository.findWithEmployerById(jobId)
                 .orElseThrow(() -> new RuntimeException("Job not found"));
 
         if (job.getEmployer() == null
@@ -225,5 +225,15 @@ public class JobService {
         return value == null || value.isBlank()
                 ? null
                 : value.trim();
+    }
+
+    public Long countJobsByEmployer(Long employerId) {
+        if (employerId == null || employerId <= 0) {
+            throw new IllegalArgumentException(
+                    "Employer ID must be positive"
+            );
+        }
+
+        return jobRepository.countJobsByEmployer(employerId);
     }
 }

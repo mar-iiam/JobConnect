@@ -95,4 +95,10 @@ public class JobController {
                     .body(Map.of("error", ex.getMessage()));
         }
     }
+
+    @GetMapping("/employer/{employerId}/count")
+    public Long countJobsByEmployer(
+            @PathVariable Long employerId) {
+        return jobService.countJobsByEmployer(employerId);
+    }
 }
