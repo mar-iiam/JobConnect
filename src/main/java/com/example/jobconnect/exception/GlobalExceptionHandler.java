@@ -1,8 +1,10 @@
 package com.example.jobconnect.exception;
 
 import com.example.jobconnect.dto.ApiResponse;
+import org.slf4j.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -10,8 +12,15 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import lombok.extern.slf4j.Slf4j;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+@Slf4j                      // <-- add this
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
 
     // Handle custom business exceptions
     @ExceptionHandler(ApiException.class)
@@ -30,18 +39,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Object>> handleValidationException(MethodArgumentNotValidException ex) {
 
-        String errorMessage = ex.getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .map(err -> err.getField() + ": " + err.getDefaultMessage())
-                .reduce((e1, e2) -> e1 + ", " + e2)
-                .orElse("Validation error");
+        Map<String, String> errors = new LinkedHashMap<>();
+        ex.getBindingResult().getFieldErrors()
+                .forEach(err -> errors.putIfAbsent(err.getField(), err.getDefaultMessage()));
 
         ApiResponse<Object> response = ApiResponse.builder()
                 .statusCode(400)
-                .message(errorMessage)
+                .message("Validation failed for one or more fields")
                 .errorCode("VALIDATION_001")
-                .data(null)
+                .data(errors)
                 .build();
 
         return ResponseEntity.badRequest().body(response);
@@ -49,7 +55,7 @@ public class GlobalExceptionHandler {
     // Handle all unexpected errors
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGenericException(Exception ex) {
-        ex.printStackTrace();
+        log.error("Unexpected error", ex);
 
         ApiResponse<Object> response = ApiResponse.builder()
                 .statusCode(500)
@@ -108,5 +114,37 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Object>> handleUnreadable(HttpMessageNotReadableException ex) {
+        ApiResponse<Object> response = ApiResponse.builder()
+                .statusCode(400)
+                .message("Request body is missing, malformed, or has an invalid value (for example an unknown employmentType)")
+                .errorCode("VALIDATION_002")
+                .data(null)
+                .build();
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Object>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        ApiResponse<Object> response = ApiResponse.builder()
+                .statusCode(400)
+                .message("Invalid value for parameter '" + ex.getName() + "'")
+                .errorCode("VALIDATION_003")
+                .data(null)
+                .build();
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        ApiResponse<Object> response = ApiResponse.builder()
+                .statusCode(400)
+                .message(ex.getMessage())
+                .errorCode("VALIDATION_004")
+                .data(null)
+                .build();
+        return ResponseEntity.badRequest().body(response);
     }
 }

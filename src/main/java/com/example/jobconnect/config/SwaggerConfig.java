@@ -2,13 +2,14 @@ package com.example.jobconnect.config;
 
 
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.*;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
+@SecurityRequirements // empty = no auth required
 @Configuration
 public class SwaggerConfig {
 
@@ -22,6 +23,7 @@ public class SwaggerConfig {
                         .title("JobConnect API")
                         .version("1.0")
                         .description("API documentation with JWT authentication")
+
                 )
                 .addSecurityItem(new SecurityRequirement().addList(securitySchemeName))
                 .components(new Components()
@@ -31,6 +33,7 @@ public class SwaggerConfig {
                                         .type(SecurityScheme.Type.HTTP)
                                         .scheme("bearer")
                                         .bearerFormat("JWT")
+
                         )
                 );
     }

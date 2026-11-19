@@ -1,10 +1,11 @@
-
 package com.example.jobconnect.services;
 
 import com.example.jobconnect.dto.*;
 import com.example.jobconnect.entity.Employer;
 import com.example.jobconnect.entity.EmploymentType;
 import com.example.jobconnect.entity.Job;
+import com.example.jobconnect.exception.ApiException;
+import com.example.jobconnect.exception.JobNotFoundException;
 import com.example.jobconnect.repository.JobPaginationRepo;
 import com.example.jobconnect.repository.JobRepository;
 import com.example.jobconnect.repository.UserRepository;
@@ -13,10 +14,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.nio.file.AccessDeniedException;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Set;
 
@@ -35,9 +37,7 @@ public class JobService {
             CreateJobRequest request,
             String username) {
 
-        Employer employer = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"))
-                .getEmployer();
+        Employer employer = getEmployer(username);
 
         Job job = new Job(
                 request.getTitle(),
@@ -52,30 +52,18 @@ public class JobService {
 
         Job savedJob = jobRepository.save(job);
 
-        JobResponse response = new JobResponse();
-        response.setId(savedJob.getId());
-        response.setTitle(savedJob.getTitle());
-        response.setDescription(savedJob.getDescription());
-        response.setSkills(savedJob.getSkills());
-        response.setSalary(savedJob.getSalary());
-        response.setLocation(savedJob.getLocation());
-        response.setEmploymentType(savedJob.getEmploymentType());
-        response.setEmployerId(employer.getId());
-
-        return response;
+        return toResponse(savedJob, employer);
     }
 
     public JobResponse updateJob(
             Long jobId,
             UpdateJobRequest request,
-            String username) throws AccessDeniedException {
+            String username) {
 
-        Employer employer = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"))
-                .getEmployer();
+        Employer employer = getEmployer(username);
 
         Job job = jobRepository.findWithEmployerById(jobId)
-                .orElseThrow(() -> new RuntimeException("Job not found"));
+                .orElseThrow(() -> new JobNotFoundException(jobId));
 
         if (job.getEmployer() == null
                 || !job.getEmployer().getId().equals(employer.getId())) {
@@ -84,40 +72,52 @@ public class JobService {
             );
         }
 
-        job.setTitle(request.getTitle());
-        job.setDescription(request.getDescription());
-        job.setSkills(request.getSkills());
-        job.setSalary(BigDecimal.valueOf(request.getSalary()));
-        job.setLocation(request.getLocation());
-        job.setEmploymentType(
-                EmploymentType.valueOf(request.getEmploymentType())
-        );
+        // Partial update: only change the fields that were sent
+        if (request.getTitle() != null) {
+            job.setTitle(request.getTitle());
+        }
+        if (request.getDescription() != null) {
+            job.setDescription(request.getDescription());
+        }
+        if (request.getSkills() != null) {
+            job.setSkills(request.getSkills());
+        }
+        if (request.getSalary() != null) {
+            job.setSalary(request.getSalary());
+        }
+        if (request.getLocation() != null) {
+            job.setLocation(request.getLocation());
+        }
+        if (request.getEmploymentType() != null) {
+            try {
+                job.setEmploymentType(
+                        EmploymentType.valueOf(
+                                String.valueOf(request.getEmploymentType())
+                                        .trim()
+                                        .toUpperCase(Locale.ROOT)
+                        )
+                );
+            } catch (IllegalArgumentException ex) {
+                throw new IllegalArgumentException(
+                        "Invalid employmentType. Allowed values: "
+                                + Arrays.toString(EmploymentType.values())
+                );
+            }
+        }
 
         Job updatedJob = jobRepository.save(job);
 
-        JobResponse response = new JobResponse();
-        response.setId(updatedJob.getId());
-        response.setTitle(updatedJob.getTitle());
-        response.setDescription(updatedJob.getDescription());
-        response.setSkills(updatedJob.getSkills());
-        response.setSalary(updatedJob.getSalary());
-        response.setLocation(updatedJob.getLocation());
-        response.setEmploymentType(updatedJob.getEmploymentType());
-        response.setEmployerId(employer.getId());
-
-        return response;
+        return toResponse(updatedJob, employer);
     }
 
     public void deleteJob(
             Long jobId,
-            String username) throws AccessDeniedException {
+            String username) {
 
-        Employer employer = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"))
-                .getEmployer();
+        Employer employer = getEmployer(username);
 
         Job job = jobRepository.findById(jobId)
-                .orElseThrow(() -> new RuntimeException("Job not found"));
+                .orElseThrow(() -> new JobNotFoundException(jobId));
 
         if (job.getEmployer() == null
                 || !job.getEmployer().getId().equals(employer.getId())) {
@@ -206,7 +206,6 @@ public class JobService {
                 Sort.by(sortDirection, field)
         );
 
-        // Call the injected repository instance, not the interface statically.
         Page<Job> jobs = jobPaginationRepo.searchJobs(
                 title,
                 location,
@@ -221,12 +220,6 @@ public class JobService {
         return PageResponseDto.from(dtoPage);
     }
 
-    private String normalize(String value) {
-        return value == null || value.isBlank()
-                ? null
-                : value.trim();
-    }
-
     public Long countJobsByEmployer(Long employerId) {
         if (employerId == null || employerId <= 0) {
             throw new IllegalArgumentException(
@@ -235,5 +228,38 @@ public class JobService {
         }
 
         return jobRepository.countJobsByEmployer(employerId);
+    }
+
+    // ---------- helpers ----------
+
+    private Employer getEmployer(String username) {
+        Employer employer = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ApiException(404, "AUTH_002", "User not found"))
+                .getEmployer();
+
+        if (employer == null) {
+            throw new AccessDeniedException("Only employers can manage jobs");
+        }
+
+        return employer;
+    }
+
+    private JobResponse toResponse(Job job, Employer employer) {
+        JobResponse response = new JobResponse();
+        response.setId(job.getId());
+        response.setTitle(job.getTitle());
+        response.setDescription(job.getDescription());
+        response.setSkills(job.getSkills());
+        response.setSalary(job.getSalary());
+        response.setLocation(job.getLocation());
+        response.setEmploymentType(job.getEmploymentType());
+        response.setEmployerId(employer.getId());
+        return response;
+    }
+
+    private String normalize(String value) {
+        return value == null || value.isBlank()
+                ? null
+                : value.trim();
     }
 }
